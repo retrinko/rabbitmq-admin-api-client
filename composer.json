@@ -1,0 +1,34 @@
+{
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "name": "retrinko/rabbitmq-admin-api-client",
+  "description": "Client for RabbitMQ admin API",
+  "license": "MIT",
+  "keywords": [
+    "RabbitMQ",
+    "admin",
+    "API",
+    "client"
+  ],
+  "authors": [
+    {
+      "name": "Miguel Ángel Graña",
+      "email": "miguel.mailbox@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=5.4.0",
+    "retrinko/scylla": "^0.3",
+    "retrinko/url-composer": "^0.6"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^4.0"
+  },
+  "repositories": [],
+  "autoload": {
+    "psr-4": {
+      "Retrinko\\RabbitMQ\\Admin\\": "src",
+      "Retrinko\\RabbitMQ\\Admin\\Tests\\Unit\\": "tests/unit"
+    }
+  }
+}
