@@ -6,6 +6,7 @@ use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Retrinko\RabbitMQ\Admin\Exceptions\Exception;
+use Retrinko\Scylla\Response\Factories\JsonResponsesFactory;
 use Retrinko\Scylla\Response\ResponseInterface;
 use Retrinko\Scylla\Client as HttpClient;
 use Retrinko\Scylla\Request\RequestInterface;
@@ -45,6 +46,7 @@ class Client
         $this->logger = new NullLogger();
         $this->httpClient = new HttpClient();
         $this->httpClient->setLogger($this->logger);
+        $this->httpClient->setResponsesFactory(new JsonResponsesFactory());
 
         $this->apiUrl = $apiUrl;
         $this->user = $user;
@@ -61,6 +63,47 @@ class Client
     }
 
     /**
+     * @param RequestInterface $request
+     *
+     * @return ResponseInterface
+     * @throws Exception
+     * @throws \Retrinko\Scylla\Exceptions\Exception
+     */
+    protected function executeRequest(RequestInterface $request)
+    {
+        $loggerEnv['request-method'] = $request->getRequestMethod();
+        $loggerEnv['request-url'] = $request->getUrl();
+        $loggerEnv['request-params'] = $request->getParams();
+
+        // Execute request
+        /** @var ResponseInterface $response */
+        $response = $this->httpClient->exec($request)->current();
+
+        // Add info to loggerEnv
+        $loggerEnv['code'] = $response->getCode();
+        $loggerEnv['msg'] = $response->getMessage();
+        $loggerEnv['content'] = $response->getContent();
+
+        // Check response code
+        $code = $response->getCode();
+        if (false === HttpCodes::isError($code))
+        {
+            $this->logger->notice('Request execution success!', $loggerEnv);
+        }
+        else
+        {
+            $this->logger->error('Error executing request!', $loggerEnv);
+            throw new Exception(sprintf('Error executing request [%s] %s (%s): %s',
+                                        $request->getRequestMethod(),
+                                        $request->getUrl(),
+                                        implode(', ', $request->getParams()),
+                                        $response->getMessage()));
+        }
+
+        return $response;
+    }
+
+    /**
      * @param string $name
      * @param string $passwd
      * @param array $tags
@@ -72,7 +115,6 @@ class Client
      */
     public function createUser($name, $passwd, $tags = [])
     {
-        $loggerEnv = get_defined_vars();
         $tagsStr = implode(',', $tags);
 
         // Build URL: /users/$name
@@ -85,25 +127,7 @@ class Client
         $request->addParam('password', $passwd)->addParam('tags', $tagsStr);
 
         // Execute request
-        /** @var ResponseInterface $response */
-        $response = $this->httpClient->exec($request)->current();
-        $loggerEnv['code'] = $response->getCode();
-        $loggerEnv['msg'] = $response->getMessage();
-
-        // Check response code
-        $code = $response->getCode();
-        if (false === HttpCodes::isError($code))
-        {
-            $this->logger->notice('User created!', $loggerEnv);
-        }
-        else
-        {
-            $this->logger->error('Error creating user!', $loggerEnv);
-            throw new Exception(sprintf('Error creating user "%s": (%s) %s',
-                                        $name,
-                                        $response->getCode(),
-                                        $response->getMessage()));
-        }
+        $this->executeRequest($request);
 
         return true;
     }
@@ -118,8 +142,6 @@ class Client
      */
     public function deleteUser($name)
     {
-        $loggerEnv = get_defined_vars();
-
         // Build URL: /users/$name
         $url = new UrlComposer($this->apiUrl);
         $url->addToPath('users')->addToPath($name);
@@ -129,25 +151,7 @@ class Client
         $request->setAuth($this->user, $this->pass);
 
         // Execute request
-        /** @var ResponseInterface $response */
-        $response = $this->httpClient->exec($request)->current();
-        $loggerEnv['code'] = $response->getCode();
-        $loggerEnv['msg'] = $response->getMessage();
-
-        // Check response code
-        $code = $response->getCode();
-        if (false === HttpCodes::isError($code))
-        {
-            $this->logger->notice('User deleted!', $loggerEnv);
-        }
-        else
-        {
-            $this->logger->error('Error deleting user!', $loggerEnv);
-            throw new Exception(sprintf('Error deleting user "%s": (%s) %s',
-                                        $name,
-                                        $response->getCode(),
-                                        $response->getMessage()));
-        }
+        $this->executeRequest($request);
 
         return true;
     }
@@ -163,8 +167,6 @@ class Client
      */
     public function getUser($name)
     {
-        $loggerEnv = get_defined_vars();
-
         // Build URL: /users/$name
         $url = new UrlComposer($this->apiUrl);
         $url->addToPath('users')->addToPath($name);
@@ -174,25 +176,7 @@ class Client
         $request->setAuth($this->user, $this->pass);
 
         // Execute request
-        /** @var ResponseInterface $response */
-        $response = $this->httpClient->exec($request)->current();
-        $loggerEnv['code'] = $response->getCode();
-        $loggerEnv['msg'] = $response->getMessage();
-
-        // Check response code
-        $code = $response->getCode();
-        if (false === HttpCodes::isError($code))
-        {
-            $this->logger->notice('User loaded!', $loggerEnv);
-        }
-        else
-        {
-            $this->logger->error('Error loading user!', $loggerEnv);
-            throw new Exception(sprintf('Error loading user "%s": (%s) %s',
-                                        $name,
-                                        $response->getCode(),
-                                        $response->getMessage()));
-        }
+        $response = $this->executeRequest($request);
 
         return $response->getDecodedContent();
     }
@@ -225,8 +209,6 @@ class Client
      */
     public function getUsers()
     {
-        $loggerEnv = get_defined_vars();
-
         // Build URL: /users
         $url = new UrlComposer($this->apiUrl);
         $url->addToPath('users');
@@ -236,24 +218,7 @@ class Client
         $request->setAuth($this->user, $this->pass);
 
         // Execute request
-        /** @var ResponseInterface $response */
-        $response = $this->httpClient->exec($request)->current();
-        $loggerEnv['code'] = $response->getCode();
-        $loggerEnv['msg'] = $response->getMessage();
-
-        // Check response code
-        $code = $response->getCode();
-        if (false === HttpCodes::isError($code))
-        {
-            $this->logger->notice('Users obtained!', $loggerEnv);
-        }
-        else
-        {
-            $this->logger->error('Error getting users!', $loggerEnv);
-            throw new Exception(sprintf('Error getting users: (%s ) %s',
-                                        $response->getCode(),
-                                        $response->getMessage()));
-        }
+        $response = $this->executeRequest($request);
 
         return $response->getDecodedContent();
     }
@@ -273,8 +238,6 @@ class Client
      */
     public function setUserPermissions($name, $vhost = '%2f', $config = '', $write = '', $read = '')
     {
-        $loggerEnv = get_defined_vars();
-
         // Build URL: /permissions/$vhost/$name
         $url = new UrlComposer($this->apiUrl);
         $url->addToPath('permissions')->addToPath($vhost)->addToPath($name);
@@ -293,23 +256,10 @@ class Client
         $loggerEnv['msg'] = $response->getMessage();
 
         // Check response code
-        $code = $response->getCode();
-        if (false === HttpCodes::isError($code))
-        {
-            $this->logger->notice('User permission setted!', $loggerEnv);
-        }
-        else
-        {
-            $this->logger->error('Error setting user permissions!', $loggerEnv);
-            throw new Exception(sprintf('Error setting user permissions for "%s": (%s) %s',
-                                        $name,
-                                        $response->getCode(),
-                                        $response->getMessage()));
-        }
+        $this->executeRequest($request);
 
         return true;
     }
-
 
 
     /**
@@ -323,8 +273,6 @@ class Client
      */
     public function createQueue($name, $vhost = '%2f')
     {
-        $loggerEnv = get_defined_vars();
-
         // Build URL: /queues/$vhost/$name
         $url = new UrlComposer($this->apiUrl);
         $url->addToPath('queues')->addToPath($vhost)->addToPath($name);
@@ -337,25 +285,7 @@ class Client
                 ->addParam('arguments', []);
 
         // Execute request
-        /** @var ResponseInterface $response */
-        $response = $this->httpClient->exec($request)->current();
-        $loggerEnv['code'] = $response->getCode();
-        $loggerEnv['msg'] = $response->getMessage();
-
-        // Check response code
-        $code = $response->getCode();
-        if (false === HttpCodes::isError($code))
-        {
-            $this->logger->notice('Queue created!', $loggerEnv);
-        }
-        else
-        {
-            $this->logger->error('Error creating queue!', $loggerEnv);
-            throw new Exception(sprintf('Error creating queue "%s": (%s) %s',
-                                        $name,
-                                        $response->getCode(),
-                                        $response->getMessage()));
-        }
+        $this->executeRequest($request);
 
         return true;
     }
@@ -371,8 +301,6 @@ class Client
      */
     public function deleteQueue($name, $vhost = '%2f')
     {
-        $loggerEnv = get_defined_vars();
-
         // Build URL: /queues/$vhost/$name
         $url = new UrlComposer($this->apiUrl);
         $url->addToPath('queues')->addToPath($vhost)->addToPath($name);
@@ -382,25 +310,7 @@ class Client
         $request->setAuth($this->user, $this->pass);
 
         // Execute request
-        /** @var ResponseInterface $response */
-        $response = $this->httpClient->exec($request)->current();
-        $loggerEnv['code'] = $response->getCode();
-        $loggerEnv['msg'] = $response->getMessage();
-
-        // Check response code
-        $code = $response->getCode();
-        if (false === HttpCodes::isError($code))
-        {
-            $this->logger->notice('Queue deleted!', $loggerEnv);
-        }
-        else
-        {
-            $this->logger->error('Error deleting queue!', $loggerEnv);
-            throw new Exception(sprintf('Error deleting queue "%s": (%s) %s',
-                                        $name,
-                                        $response->getCode(),
-                                        $response->getMessage()));
-        }
+        $this->executeRequest($request);
 
         return true;
     }
@@ -413,8 +323,6 @@ class Client
      */
     public function getQueues()
     {
-        $loggerEnv = get_defined_vars();
-
         // Build URL: /queues
         $url = new UrlComposer($this->apiUrl);
         $url->addToPath('queues');
@@ -424,24 +332,7 @@ class Client
         $request->setAuth($this->user, $this->pass);
 
         // Execute request
-        /** @var ResponseInterface $response */
-        $response = $this->httpClient->exec($request)->current();
-        $loggerEnv['code'] = $response->getCode();
-        $loggerEnv['msg'] = $response->getMessage();
-
-        // Check response code
-        $code = $response->getCode();
-        if (false === HttpCodes::isError($code))
-        {
-            $this->logger->notice('Queue obteined!', $loggerEnv);
-        }
-        else
-        {
-            $this->logger->error('Error getting queues!', $loggerEnv);
-            throw new Exception(sprintf('Error getting queues: (%s) %s',
-                                        $response->getCode(),
-                                        $response->getMessage()));
-        }
+        $response = $this->executeRequest($request);
 
         return $response->getDecodedContent();
     }
@@ -462,8 +353,6 @@ class Client
     public function createBinding($exchangeName, $queueName, $routingKey = null, $vhost = '%2f',
                                   $args = [])
     {
-        $loggerEnv = get_defined_vars();
-
         // Build URL: /bindings/$vhost/e/$exchangeName/q/$queueName
         $url = new UrlComposer($this->apiUrl);
         $url->addToPath('bindings')
@@ -483,26 +372,82 @@ class Client
         }
 
         // Execute request
-        /** @var ResponseInterface $response */
-        $response = $this->httpClient->exec($request)->current();
-        $loggerEnv['code'] = $response->getCode();
-        $loggerEnv['msg'] = $response->getMessage();
-
-        // Check response code
-        $code = $response->getCode();
-        if (false === HttpCodes::isError($code))
-        {
-            $this->logger->notice('Binding created!', $loggerEnv);
-        }
-        else
-        {
-            $this->logger->error('Error creating binding!', $loggerEnv);
-            throw new Exception(sprintf('Error creating binding: (%s) %s',
-                                        $response->getCode(),
-                                        $response->getMessage()));
-        }
+        $this->executeRequest($request);
 
         return true;
     }
 
+    /**
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\Scylla\Exceptions\Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getOverview()
+    {
+        // Build URL: /overview
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('overview');
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+
+    /**
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\Scylla\Exceptions\Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getNodes()
+    {
+        // Build URL: /nodes
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('nodes');
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+
+    /**
+     * @param string $name
+     * @param bool $includeMemoryStatistics
+     *
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\Scylla\Exceptions\Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getNode($name, $includeMemoryStatistics = false)
+    {
+        // Build URL: /nodes[?memory=true]
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('nodes')->addToPath($name);
+        if ($includeMemoryStatistics)
+        {
+            $url->addToQuery('memory', 'true');
+        }
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+    
 }
