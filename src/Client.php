@@ -591,7 +591,7 @@ class Client
      */
     public function getDefinitions()
     {
-        // Build URL: /overview
+        // Build URL: /definitions
         $url = new UrlComposer($this->apiUrl);
         $url->addToPath('definitions');
 
