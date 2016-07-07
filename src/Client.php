@@ -103,6 +103,55 @@ class Client
         return $response;
     }
 
+
+    /**
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getVhosts()
+    {
+        // Build URL: /vhosts
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('vhosts');
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+
+    /**
+     * @param string $name
+     *
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getVhost($name)
+    {
+        // Build URL: /vhosts/name
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('vhosts');
+        if (!empty($name))
+        {
+            $url->addToPath($name);
+        }
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+
     /**
      * @param string $name
      * @param string $passwd
@@ -316,16 +365,78 @@ class Client
     }
 
     /**
+     * @param string $vhost
+     *
      * @return array
      * @throws Exception
-     * @throws \Retrinko\Scylla\Exceptions\Exception
      * @throws \Retrinko\UrlComposer\Exceptions\UrlException
      */
-    public function getQueues()
+    public function getQueues($vhost = '')
     {
-        // Build URL: /queues
+        // Build URL: /queues[/$vhost]
         $url = new UrlComposer($this->apiUrl);
         $url->addToPath('queues');
+        if (!empty($vhost))
+        {
+            $url->addToPath($vhost);
+        }
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+
+    /**
+     * @param string $vhost
+     *
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getBindings($vhost = '')
+    {
+        // Build URL: /bindings[/$vhost]
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('bindings');
+        if (!empty($vhost))
+        {
+            $url->addToPath($vhost);
+        }
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+
+    /**
+     * @param string $exchange
+     * @param string $queue
+     * @param string $vhost
+     *
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getBindingsBetween($exchange, $queue, $vhost = '%2f')
+    {
+        // Build URL: /bindings/vhost/e/exchange/q/queue
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('bindings')
+            ->addToPath($vhost)
+            ->addToPath('e')
+            ->addToPath($exchange)
+            ->addToPath('q')
+            ->addToPath($queue);
 
         // Build request
         $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
