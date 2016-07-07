@@ -449,5 +449,116 @@ class Client
 
         return $response->getDecodedContent();
     }
-    
+
+    /**
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\Scylla\Exceptions\Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getExtensions()
+    {
+        // Build URL: /extensions
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('extensions');
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+
+    /**
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\Scylla\Exceptions\Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getDefinitions()
+    {
+        // Build URL: /overview
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('definitions');
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+
+    /**
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\Scylla\Exceptions\Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getConnetions()
+    {
+        // Build URL: /connections
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('connections');
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+
+    /**
+     * @param string $name
+     *
+     * @return array
+     * @throws Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function getConnection($name)
+    {
+        // Build URL: /nodes[?memory=true]
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('connections')->addToPath($name);
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_GET);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $response = $this->executeRequest($request);
+
+        return $response->getDecodedContent();
+    }
+
+    /**
+     * @param string $name
+     *
+     * @return bool
+     * @throws Exception
+     * @throws \Retrinko\UrlComposer\Exceptions\UrlException
+     */
+    public function closeConnection($name)
+    {
+        // Build URL: /nodes[?memory=true]
+        $url = new UrlComposer($this->apiUrl);
+        $url->addToPath('connections')->addToPath($name);
+
+        // Build request
+        $request = new JsonRequest($url->__toString(), RequestInterface::REQUEST_METHOD_DELETE);
+        $request->setAuth($this->user, $this->pass);
+
+        // Execute request
+        $this->executeRequest($request);
+
+        return true;
+    }
 }
